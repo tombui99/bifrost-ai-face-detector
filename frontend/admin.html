@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard - AI Face Attendance</title>
+    <link rel="stylesheet" href="static/style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      .admin-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 20px;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      h2 {
+        margin-top: 0;
+        margin-bottom: 20px;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+      input[type="text"],
+      input[type="file"] {
+        width: 100%;
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        color: white;
+        box-sizing: border-box;
+      }
+      .btn {
+        background: #00c800;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        width: 100%;
+        transition: background 0.2s;
+      }
+      .btn:hover {
+        background: #00a000;
+      }
+      .btn:disabled {
+        background: #555;
+        cursor: not-allowed;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      th {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        opacity: 0.6;
+      }
+      .status-msg {
+        margin-top: 10px;
+        font-size: 0.9rem;
+      }
+      .nav-links {
+        margin-bottom: 20px;
+      }
+      .back-btn {
+        text-decoration: none;
+        color: #00c800;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="admin-container">
+      <div class="nav-links">
+        <a href="/" class="back-btn">← Back to Scanner</a>
+      </div>
+      <header>
+        <h1>Admin Dashboard</h1>
+      </header>
+
+      <div class="grid">
+        <section class="card">
+          <h2><span>👤</span> Register Face</h2>
+          <form id="upload-form">
+            <div class="form-group">
+              <label for="employee-name">Name</label>
+              <input
+                type="text"
+                id="employee-name"
+                placeholder="Full Name"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="employee-id">Employee ID</label>
+              <input type="text" id="employee-id" placeholder="EMP001" />
+            </div>
+            <div class="form-group">
+              <label for="department">Department</label>
+              <input
+                type="text"
+                id="department"
+                placeholder="Engineering, HR, etc."
+              />
+            </div>
+            <div class="form-group">
+              <label for="face-image">Face Image</label>
+              <input type="file" id="face-image" accept="image/*" required />
+            </div>
+            <button type="submit" id="upload-btn" class="btn">Upload</button>
+          </form>
+          <div id="status" class="status-msg"></div>
+
+          <h2 style="margin-top: 30px"><span>📋</span> Registered Staff</h2>
+          <div style="max-height: 300px; overflow-y: auto">
+            <table id="employees-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>ID</th>
+                  <th>Dept</th>
+                </tr>
+              </thead>
+              <tbody id="employees-body">
+                <!-- Employees will be inserted here -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2><span>🕒</span> Attendance Logs</h2>
+          <div style="max-height: 500px; overflow-y: auto">
+            <table id="logs-table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="logs-body">
+                <!-- Logs will be inserted here -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      const uploadForm = document.getElementById("upload-form");
+      const statusDiv = document.getElementById("status");
+      const logsBody = document.getElementById("logs-body");
+      const employeesBody = document.getElementById("employees-body");
+
+      async function fetchLogs() {
+        try {
+          const response = await fetch("/api/logs");
+          const data = await response.json();
+          if (data.status === "success") {
+            logsBody.innerHTML = "";
+            data.logs.forEach((log) => {
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                <td>${log.name}</td>
+                <td>${new Date(log.timestamp + "Z").toLocaleString()}</td>
+              `;
+              logsBody.appendChild(row);
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching logs:", error);
+        }
+      }
+
+      async function fetchEmployees() {
+        try {
+          const response = await fetch("/api/employees");
+          const data = await response.json();
+          if (data.status === "success") {
+            employeesBody.innerHTML = "";
+            data.employees.forEach((emp) => {
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                <td>${emp.name}</td>
+                <td>${emp.employee_id || "-"}</td>
+                <td>${emp.department || "-"}</td>
+              `;
+              employeesBody.appendChild(row);
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching employees:", error);
+        }
+      }
+
+      uploadForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = document.getElementById("employee-name").value;
+        const employee_id = document.getElementById("employee-id").value;
+        const department = document.getElementById("department").value;
+        const file = document.getElementById("face-image").files[0];
+        const btn = document.getElementById("upload-btn");
+
+        if (!name || !file) return;
+
+        btn.disabled = true;
+        statusDiv.innerText = "Uploading...";
+        statusDiv.style.color = "white";
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const base64Image = reader.result;
+          try {
+            const response = await fetch("/upload_face", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name,
+                employee_id,
+                department,
+                image: base64Image,
+              }),
+            });
+            const result = await response.json();
+            if (result.status === "success") {
+              statusDiv.innerText = "Upload Successful!";
+              statusDiv.style.color = "#00c800";
+              uploadForm.reset();
+              fetchEmployees();
+            } else {
+              statusDiv.innerText = "Upload failed: " + result.message;
+              statusDiv.style.color = "#ff4b2b";
+            }
+          } catch (error) {
+            statusDiv.innerText = "Error uploading image.";
+            statusDiv.style.color = "#ff4b2b";
+          } finally {
+            btn.disabled = false;
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // Initial fetch and poll
+      fetchLogs();
+      fetchEmployees();
+      setInterval(fetchLogs, 10000);
+      setInterval(fetchEmployees, 30000);
+    </script>
+  </body>
+</html>

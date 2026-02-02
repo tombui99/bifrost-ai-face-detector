@@ -1,3 +1,8 @@
-opencv-python
 deepface
+opencv-python
 tf-keras
+Flask
+Flask-CORS
+pyOpenSSL
+gunicorn
+python-dotenv

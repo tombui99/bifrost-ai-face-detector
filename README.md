@@ -4,18 +4,21 @@ A real-time facial recognition system built with Python, utilizing state-of-the-
 
 ## 🌟 Features
 
-- **Real-time Detection**: Uses `RetinaFace` for robust and accurate face detection.
-- **High-Precision Recognition**: Leverages the `Facenet512` model for deep representational matching.
-- **Dynamic Database**: Automatically indexes images placed in the `faces_db` directory.
+- **Real-time Tracking**: Optimized face detection counting for live feeds.
+- **Snapshot Recognition**: Capture snapshots to identify faces with high precision.
+- **Admin Dashboard**: Web interface to manage employees and view records.
+- **Employee Management**: Register staff with metadata (ID, Department) and face photos.
+- **Time Attendance**: Automatically log identified faces to a local database with timestamps.
 - **Visual Feedback**: Real-time bounding boxes with identity labels and confidence scores.
 
 ## 🛠️ Tech Stack
 
 - **Language**: Python 3.x
+- **Backend API**: [Flask](https://flask.palletsprojects.com/)
+- **Database**: SQLite (for Attendance Logs & Employees)
 - **Computer Vision**: [OpenCV](https://opencv.org/)
-- **Deep Learning Framework**: [DeepFace](https://github.com/serengil/deepface)
+- **Deep Learning**: [DeepFace](https://github.com/serengil/deepface)
 - **Models**: RetinaFace (Detection), Facenet512 (Recognition)
-- **Backend**: TensorFlow / Keras
 
 ## 🚀 Getting Started
 
@@ -41,6 +44,7 @@ A real-time facial recognition system built with Python, utilizing state-of-the-
    ```
 
 3. **Install dependencies**:
+
    ```bash
    pip install -r requirements.txt
    ```
@@ -52,16 +56,27 @@ Add photos of people you want to recognize into the `faces_db` folder:
 - Create a subfolder for each person: `faces_db/John_Doe/`
 - Add one or more `.jpg` or `.png` images of that person into their respective folder.
 
-## 💻 Usage
+### 1. Web API & Dashboard
 
-Run the main script to start the recognition system:
+Run the Flask server to access the web interface and admin dashboard:
+
+```bash
+python app.py
+```
+
+- **Scanner**: `http://localhost:8080/`
+- **Admin Dash**: `http://localhost:8080/admin`
+
+### 2. Standalone OpenCV Tool
+
+For local desktop testing:
 
 ```bash
 python main.py
 ```
 
-- Press **'q'** to quit the application.
-- The system will automatically clear the DeepFace cache (`.pkl` files) on startup to ensure new images are indexed.
+- Press **'s'** or **Click SCAN** to take a snapshot and identify people.
+- Press **'q'** to quit.
 
 ## 📝 License
 

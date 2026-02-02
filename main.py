@@ -3,6 +3,7 @@ from deepface import DeepFace
 import time
 import os
 import glob
+import db_utils
 
 def clear_deepface_cache(db_path):
     """Deletes .pkl files in the database directory to force DeepFace to re-index."""
@@ -158,6 +159,10 @@ def main():
                         cv2.rectangle(snapshot_display, (fx, fy), (fx+fw, fy+fh), color, 2)
                         label = f"{identity_name} {dist_str}".strip()
                         cv2.putText(snapshot_display, label, (fx, fy-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+                        
+                        # Log attendance
+                        if identity_name != "Unknown":
+                            db_utils.log_attendance(identity_name)
 
                 # Show Snapshot Result in a new window
                 cv2.imshow('Snapshot Result', snapshot_display)

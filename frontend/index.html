@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Face Detector - Web Demo</title>
+    <link rel="stylesheet" href="static/style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="app-container">
+      <header>
+        <h1>AI Face Detector</h1>
+        <a
+          href="/admin"
+          style="
+            color: #00c800;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+          "
+          >Admin Dashboard</a
+        >
+      </header>
+
+      <main>
+        <div class="video-wrapper">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="overlay"></canvas>
+          <div id="loader" class="loader hidden">
+            <div class="spinner"></div>
+            <p>ANALYZING...</p>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="scan-btn" class="scan-btn">
+            <span class="btn-text">SCAN</span>
+            <span class="btn-icon">📸</span>
+          </button>
+          <div class="stats">
+            <p id="face-count">Faces Detected: 0</p>
+          </div>
+        </div>
+      </main>
+
+      <div id="result-modal" class="modal hidden">
+        <div class="modal-content">
+          <span class="close-btn">&times;</span>
+          <h2>Identification Result</h2>
+          <div class="result-image-container">
+            <canvas id="result-canvas"></canvas>
+          </div>
+          <div id="result-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="static/script.js"></script>
+  </body>
+</html>
