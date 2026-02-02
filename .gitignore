@@ -154,6 +154,5 @@ cython_debug/
 .idea/
 
 # DeepFace / Project Specific
-faces_db/*.pkl
-faces_db/*.jpg
-
+faces_db/*
+!faces_db/.keep
