@@ -15,146 +15,176 @@ def clear_deepface_cache(db_path):
             print(f"Failed to clear cache {f}: {e}")
 
 def main():
-    print("--- AI Facial Recognition System v2.2 (Facenet512) ---")
+    print("--- AI Facial Recognition System ---")
     
     # Absolute Path to Database
     db_path = os.path.abspath("faces_db")
-    print(f"Database Path: {db_path}")
-    
-    # Verify Database Content
-    if not os.path.exists(db_path):
-        print(f"Error: Database directory '{db_path}' not found.")
-        return
-        
-    db_files = [f for f in os.listdir(db_path) if not f.startswith('.')]
-    print(f"Items in Database: {db_files}")
+    db_exists = os.path.exists(db_path) and len([f for f in os.listdir(db_path) if not f.startswith('.')]) > 0
     
     # Clear cache at startup to ensure new photos are indexed
     clear_deepface_cache(db_path)
     
     # Configuration
-    MODEL_NAME = "Facenet512" # More accurate than VGG-Face
-    DISTANCE_THRESHOLD = 0.6  # Standard for Facenet512 cosine is ~0.3, so 0.6 is very relaxed
+    MODEL_NAME = "Facenet512" 
+    DISTANCE_THRESHOLD = 0.6  
     
     # Initialize webcam
     cap = cv2.VideoCapture(0)
-
     if not cap.isOpened():
-        print("Error: Could not open webcam.")
         return
 
-    print("Press 'q' to quit.")
-
-    # Frame skipping and smoothing
-    frame_count = 0
-    skip_frames = 2  # Process every 3rd frame
-    last_detected_results = []
+    # Get frame dimensions
+    ret, frame = cap.read()
+    if not ret: return
+    height, width, _ = frame.shape
     
-    db_exists = len(db_files) > 0
+    # UI Button Configuration
+    button_w, button_h = 160, 50
+    btn_x = (width - button_w) // 2
+    btn_y = height - button_h - 20
+    button_rect = (btn_x, btn_y, button_w, button_h)
+
+    # State variables
+    scan_requested = False
+    processing = False
+    current_faces = []        # Stores {x, y, w, h} from real-time DeepFace.extract_faces
+    frame_count = 0
+    skip_frames = 2
+
+    def handle_mouse(event, x, y, flags, param):
+        nonlocal scan_requested
+        if event == cv2.EVENT_LBUTTONDOWN:
+            bx, by, bw, bh = button_rect
+            if bx <= x <= bx + bw and by <= y <= by + bh:
+                scan_requested = True
+
+    cv2.namedWindow('Face Recognition')
+    cv2.setMouseCallback('Face Recognition', handle_mouse)
+
+    print("Controls:")
+    print("  - Click 'SCAN' button: Take snapshot and identify")
+    print("  - Press 's': Take snapshot and identify")
+    print("  - Press 'q': Quit application")
 
     while True:
         ret, frame = cap.read()
-        if not ret:
-            print("Error: Could not read frame.")
-            break
+        if not ret: break
 
-        # Flip the frame for a mirror effect
         frame = cv2.flip(frame, 1)
+        display_frame = frame.copy()
 
+        # 1. Lean Real-time Tracking (Only boxes and count)
         if frame_count % (skip_frames + 1) == 0:
             try:
-                processed_results = []
-                
-                # Check for matches in full frame
-                results_find = []
-                if db_exists:
-                    try:
-                        results_find = DeepFace.find(img_path = frame, 
-                                                  db_path = db_path,
-                                                  model_name = MODEL_NAME,
-                                                  detector_backend = 'retinaface',
-                                                  enforce_detection = False,
-                                                  silent = True)
-                    except Exception as e:
-                        print(f"DeepFace.find error: {e}")
-
-                # Detection for all faces (to show red boxes for unknowns)
+                # Optimized detection for tracking only
                 faces = DeepFace.extract_faces(img_path = frame,
                                              detector_backend = 'retinaface',
                                              enforce_detection = False)
+                current_faces = []
+                for f_obj in faces:
+                    if f_obj.get('confidence', 0) > 0:
+                        current_faces.append(f_obj["facial_area"])
+            except:
+                pass
+
+        # 2. Keyboard Control
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('s'):
+            scan_requested = True
+        elif key == ord('q'):
+            break
+
+        # 3. Snapshot and Recognition Flow
+        if scan_requested and not processing:
+            processing = True
+            scan_requested = False
+            
+            # Use current frame as snapshot
+            snapshot = frame.copy()
+            snapshot_display = snapshot.copy()
+            
+            # Feedback on main window
+            cv2.putText(display_frame, "CAPTURING SNAPSHOT...", (width//2 - 150, height//2), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 3)
+            cv2.imshow('Face Recognition', display_frame)
+            cv2.waitKey(1)
+
+            try:
+                # Identification on Snapshot
+                results_find = []
+                if db_exists:
+                    results_find = DeepFace.find(img_path = snapshot, 
+                                              db_path = db_path,
+                                              model_name = MODEL_NAME,
+                                              detector_backend = 'retinaface',
+                                              enforce_detection = False,
+                                              silent = True)
                 
-                for face_obj in faces:
-                    if face_obj.get('confidence', 0) > 0:
-                        facial_area = face_obj["facial_area"]
-                        x, y, w, h = facial_area['x'], facial_area['y'], facial_area['w'], facial_area['h']
+                # Full detection for the snapshot display
+                faces_snap = DeepFace.extract_faces(img_path = snapshot,
+                                                  detector_backend = 'retinaface',
+                                                  enforce_detection = False)
+
+                for f_obj in faces_snap:
+                    if f_obj.get('confidence', 0) > 0:
+                        fa = f_obj["facial_area"]
+                        fx, fy, fw, fh = fa['x'], fa['y'], fa['w'], fa['h']
                         
-                        identity = "Unknown"
-                        display_dist = ""
+                        identity_name = "Unknown"
+                        dist_str = ""
                         
+                        # Match detection to finding results
                         if db_exists and results_find:
-                            # Match detection to finding results
                             for df in results_find:
                                 if not df.empty:
                                     match = df.iloc[0]
                                     mx, my, mw, mh = match['source_x'], match['source_y'], match['source_w'], match['source_h']
                                     
-                                    # Overlap check
-                                    if abs(x - mx) < 60 and abs(y - my) < 60:
-                                        distance_cols = [col for col in match.index if MODEL_NAME in col and ('cosine' in col or 'euclidean' in col)]
-                                        # If specific col not found, try generic distance
-                                        if not distance_cols:
-                                            distance_cols = [col for col in match.index if 'distance' in col or 'cosine' in col]
-                                            
-                                        if distance_cols:
-                                            distance = match[distance_cols[0]]
-                                            display_dist = f"({distance:.2f})"
-                                            
-                                            # Console logging
-                                            print(f"Face at [{x},{y}] - Match: {os.path.basename(match['identity'])} Distance: {distance:.4f}")
-                                            
-                                            if distance < DISTANCE_THRESHOLD:
-                                                identity_path = match['identity']
-                                                # Look for directory name (person's name)
-                                                name = os.path.basename(os.path.dirname(identity_path))
-                                                if name == 'faces_db' or name == '':
-                                                    name = os.path.splitext(os.path.basename(identity_path))[0]
-                                                identity = name
-                                        break
+                                    # Simple overlap check
+                                    if abs(fx - mx) < 50 and abs(fy - my) < 50:
+                                        dist_cols = [c for c in match.index if 'distance' in c or 'cosine' in c]
+                                        dist = match[dist_cols[0]] if dist_cols else 1.0
                                         
-                        processed_results.append({
-                            "facial_area": facial_area,
-                            "name": identity,
-                            "distance": display_dist
-                        })
-                
-                last_detected_results = processed_results
+                                        if dist < DISTANCE_THRESHOLD:
+                                            id_path = match['identity']
+                                            name = os.path.basename(os.path.dirname(id_path))
+                                            if name in ['faces_db', '']:
+                                                name = os.path.splitext(os.path.basename(id_path))[0]
+                                            identity_name = name
+                                            dist_str = f"({dist:.2f})"
+                                        break
+                        
+                        color = (0, 255, 0) if identity_name != "Unknown" else (0, 0, 255)
+                        cv2.rectangle(snapshot_display, (fx, fy), (fx+fw, fy+fh), color, 2)
+                        label = f"{identity_name} {dist_str}".strip()
+                        cv2.putText(snapshot_display, label, (fx, fy-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+                # Show Snapshot Result in a new window
+                cv2.imshow('Snapshot Result', snapshot_display)
+                print("Snapshot captured. View 'Snapshot Result' window.")
             except Exception as e:
-                # print(f"Processing error: {e}")
-                pass
-        
-        face_count = 0
-        if last_detected_results:
-            face_count = len(last_detected_results)
-            for res in last_detected_results:
-                facial_area = res["facial_area"]
-                name = res["name"]
-                dist_str = res["distance"]
-                x, y, w, h = facial_area['x'], facial_area['y'], facial_area['w'], facial_area['h']
-                
-                color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
-                cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
-                
-                label = f"{name} {dist_str}".strip()
-                cv2.putText(frame, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+                print(f"Snapshot error: {e}")
+            
+            processing = False
 
-        cv2.putText(frame, f"Faces Detected: {face_count}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        cv2.putText(frame, f"Model: {MODEL_NAME}", (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+        # 4. Draw Real-time Tracking Boxes (Generic Red)
+        for face in current_faces:
+            fx, fy, fw, fh = face['x'], face['y'], face['w'], face['h']
+            cv2.rectangle(display_frame, (fx, fy), (fx+fw, fy+fh), (0, 0, 255), 2)
 
-        cv2.imshow('Face Recognition', frame)
+        # 5. UI Overlays
+        bx, by, bw, bh = button_rect
+        cv2.rectangle(display_frame, (bx-2, by-2), (bx+bw+2, by+bh+2), (50, 50, 50), -1)
+        cv2.rectangle(display_frame, (bx, by), (bx+bw, by+bh), (0, 200, 0) if not processing else (0, 100, 0), -1)
+        cv2.putText(display_frame, "SCAN", (bx+40, by+35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
+        cv2.putText(display_frame, f"Faces Detected: {len(current_faces)}", (20, 30), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+        cv2.putText(display_frame, "Click SCAN to identify faces in a snapshot", (20, 55), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+
+        cv2.imshow('Face Recognition', display_frame)
         frame_count += 1
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
 
     cap.release()
     cv2.destroyAllWindows()
